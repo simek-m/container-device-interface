@@ -63,7 +63,7 @@ golangci-lint ci-lint:
 
 $(BINARIES): bin/%:
 	$(Q)echo "Building $@..."
-	$(Q)(cd cmd/$(*) && $(GO_BUILD) -o $(abspath $@) .)
+	$(Q)(cd cmd/$(*) && $(GO_BUILD) $(GO_EXTRAFLAGS) -o $(abspath $@) .)
 
 #
 # go module tidy and verify targets
