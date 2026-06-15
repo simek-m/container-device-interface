@@ -415,7 +415,7 @@ func TestApplyContainerEdits(t *testing.T) {
 			},
 		},
 		{
-			name: "non-empty spec, env var with existing key is appended",
+			name: "non-empty spec, env var with existing key is replaced",
 			spec: &oci.Spec{
 				Process: &oci.Process{
 					Env: []string{
@@ -432,9 +432,8 @@ func TestApplyContainerEdits(t *testing.T) {
 			result: &oci.Spec{
 				Process: &oci.Process{
 					Env: []string{
-						"FOO=old",
-						"BAR=old",
 						"FOO=new",
+						"BAR=old",
 					},
 				},
 			},

@@ -67,6 +67,7 @@ type nativeSpecEditor struct {
 func createEnvCacheMap(env []string) map[string]int {
 	envMap := make(map[string]int, len(env))
 	for i, val := range env {
+		val, _, _ = strings.Cut(val, "=")
 		envMap[val] = i
 	}
 	return envMap
