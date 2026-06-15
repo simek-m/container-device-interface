@@ -227,12 +227,12 @@ func collectCDIDevicesFromOCISpec(spec *oci.Spec) []string {
 	}
 
 	devices := spec.Linux.Devices
-	g := ociedit.NewSpecEditor(spec)
-	g.ClearLinuxDevices()
+	editor := ociedit.NewSpecEditor(spec)
+	editor.ClearLinuxDevices()
 
 	for _, d := range devices {
 		if !parser.IsQualifiedName(d.Path) {
-			g.AddDevice(d)
+			editor.AddDevice(d)
 			continue
 		}
 		cdiDevs = append(cdiDevs, d.Path)

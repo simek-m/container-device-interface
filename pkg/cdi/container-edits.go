@@ -80,9 +80,9 @@ func (e *ContainerEdits) Apply(spec *oci.Spec) error {
 		return nil
 	}
 
-	specgen := ociedit.NewSpecEditor(spec)
+	editor := ociedit.NewSpecEditor(spec)
 	if len(e.Env) > 0 {
-		specgen.AddMultipleProcessEnv(e.Env)
+		editor.AddMultipleProcessEnv(e.Env)
 	}
 
 	for _, d := range e.DeviceNodes {
@@ -104,8 +104,8 @@ func (e *ContainerEdits) Apply(spec *oci.Spec) error {
 			}
 		}
 
-		specgen.RemoveDevice(dev.Path)
-		specgen.AddDevice(dev)
+		editor.RemoveDevice(dev.Path)
+		editor.AddDevice(dev)
 
 		if dev.Type == "b" || dev.Type == "c" {
 			access := d.Permissions
@@ -115,13 +115,13 @@ func (e *ContainerEdits) Apply(spec *oci.Spec) error {
 			case NoPermissions:
 				access = ""
 			}
-			specgen.AddLinuxResourcesDevice(true, dev.Type, &dev.Major, &dev.Minor, access)
+			editor.AddLinuxResourcesDevice(true, dev.Type, &dev.Major, &dev.Minor, access)
 		}
 	}
 
 	if len(e.NetDevices) > 0 {
 		for _, dev := range e.NetDevices {
-			specgen.SetLinuxNetDevice(dev.HostInterfaceName, (&LinuxNetDevice{dev}).toOCI())
+			editor.SetLinuxNetDevice(dev.HostInterfaceName, (&LinuxNetDevice{dev}).toOCI())
 		}
 	}
 
@@ -129,46 +129,46 @@ func (e *ContainerEdits) Apply(spec *oci.Spec) error {
 		for _, m := range e.Mounts {
 			mnt := &Mount{m}
 
-			specgen.RemoveMount(m.ContainerPath)
+			editor.RemoveMount(m.ContainerPath)
 
 			if !specHasUserNamespace(spec) {
-				specgen.AddMount(mnt.toOCI())
+				editor.AddMount(mnt.toOCI())
 			} else {
-				specgen.AddMount(mnt.toOCI(withIDMapForBindMount()))
+				editor.AddMount(mnt.toOCI(withIDMapForBindMount()))
 			}
 		}
-		sortMounts(specgen)
+		sortMounts(editor)
 	}
 
 	for _, h := range e.Hooks {
 		ociHook := (&Hook{h}).toOCI()
 		switch h.HookName {
 		case PrestartHook:
-			specgen.AddPreStartHook(ociHook)
+			editor.AddPreStartHook(ociHook)
 		case PoststartHook:
-			specgen.AddPostStartHook(ociHook)
+			editor.AddPostStartHook(ociHook)
 		case PoststopHook:
-			specgen.AddPostStopHook(ociHook)
+			editor.AddPostStopHook(ociHook)
 		case CreateRuntimeHook:
-			specgen.AddCreateRuntimeHook(ociHook)
+			editor.AddCreateRuntimeHook(ociHook)
 		case CreateContainerHook:
-			specgen.AddCreateContainerHook(ociHook)
+			editor.AddCreateContainerHook(ociHook)
 		case StartContainerHook:
-			specgen.AddStartContainerHook(ociHook)
+			editor.AddStartContainerHook(ociHook)
 		default:
 			return fmt.Errorf("unknown hook name %q", h.HookName)
 		}
 	}
 
 	if e.IntelRdt != nil {
-		specgen.SetLinuxIntelRdt((&IntelRdt{e.IntelRdt}).toOCI())
+		editor.SetLinuxIntelRdt((&IntelRdt{e.IntelRdt}).toOCI())
 	}
 
 	for _, additionalGID := range e.AdditionalGIDs {
 		if additionalGID == 0 {
 			continue
 		}
-		specgen.AddProcessAdditionalGID(additionalGID)
+		editor.AddProcessAdditionalGID(additionalGID)
 	}
 
 	return nil
@@ -411,10 +411,10 @@ func (i *IntelRdt) Validate() error {
 }
 
 // sortMounts sorts the mounts in the given OCI Spec.
-func sortMounts(specgen ociedit.SpecEditor) {
-	mounts := specgen.Mounts()
+func sortMounts(editor ociedit.SpecEditor) {
+	mounts := editor.Mounts()
 	sort.Stable(orderedMounts(mounts))
-	specgen.SetMounts(mounts)
+	editor.SetMounts(mounts)
 }
 
 // orderedMounts defines how to sort an OCI Spec Mount slice.
