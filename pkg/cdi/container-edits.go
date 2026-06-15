@@ -25,7 +25,7 @@ import (
 	"strings"
 
 	oci "github.com/opencontainers/runtime-spec/specs-go"
-	ocigen "github.com/opencontainers/runtime-tools/generate"
+	"tags.cncf.io/container-device-interface/internal/ociedit"
 	cdi "tags.cncf.io/container-device-interface/specs-go"
 )
 
@@ -80,7 +80,7 @@ func (e *ContainerEdits) Apply(spec *oci.Spec) error {
 		return nil
 	}
 
-	specgen := ocigen.NewFromSpec(spec)
+	specgen := ociedit.NewSpecEditor(spec)
 	if len(e.Env) > 0 {
 		specgen.AddMultipleProcessEnv(e.Env)
 	}
@@ -120,10 +120,8 @@ func (e *ContainerEdits) Apply(spec *oci.Spec) error {
 	}
 
 	if len(e.NetDevices) > 0 {
-		// specgen is currently missing functionality to set Linux NetDevices,
-		// so we use a locally rolled function for now.
 		for _, dev := range e.NetDevices {
-			specgenAddLinuxNetDevice(&specgen, dev.HostInterfaceName, (&LinuxNetDevice{dev}).toOCI())
+			specgen.SetLinuxNetDevice(dev.HostInterfaceName, (&LinuxNetDevice{dev}).toOCI())
 		}
 	}
 
@@ -139,7 +137,7 @@ func (e *ContainerEdits) Apply(spec *oci.Spec) error {
 				specgen.AddMount(mnt.toOCI(withIDMapForBindMount()))
 			}
 		}
-		sortMounts(&specgen)
+		sortMounts(specgen)
 	}
 
 	for _, h := range e.Hooks {
@@ -151,54 +149,29 @@ func (e *ContainerEdits) Apply(spec *oci.Spec) error {
 			specgen.AddPostStartHook(ociHook)
 		case PoststopHook:
 			specgen.AddPostStopHook(ociHook)
-			// TODO: Maybe runtime-tools/generate should be updated with these...
 		case CreateRuntimeHook:
-			ensureOCIHooks(spec)
-			spec.Hooks.CreateRuntime = append(spec.Hooks.CreateRuntime, ociHook)
+			specgen.AddCreateRuntimeHook(ociHook)
 		case CreateContainerHook:
-			ensureOCIHooks(spec)
-			spec.Hooks.CreateContainer = append(spec.Hooks.CreateContainer, ociHook)
+			specgen.AddCreateContainerHook(ociHook)
 		case StartContainerHook:
-			ensureOCIHooks(spec)
-			spec.Hooks.StartContainer = append(spec.Hooks.StartContainer, ociHook)
+			specgen.AddStartContainerHook(ociHook)
 		default:
 			return fmt.Errorf("unknown hook name %q", h.HookName)
 		}
 	}
 
 	if e.IntelRdt != nil {
-		// The specgen is missing functionality to set all parameters so we
-		// just piggy-back on it to initialize all structs and the copy over.
-		specgen.SetLinuxIntelRdtClosID(e.IntelRdt.ClosID)
-		spec.Linux.IntelRdt = (&IntelRdt{e.IntelRdt}).toOCI()
+		specgen.SetLinuxIntelRdt((&IntelRdt{e.IntelRdt}).toOCI())
 	}
 
 	for _, additionalGID := range e.AdditionalGIDs {
 		if additionalGID == 0 {
 			continue
 		}
-		specgen.AddProcessAdditionalGid(additionalGID)
+		specgen.AddProcessAdditionalGID(additionalGID)
 	}
 
 	return nil
-}
-
-func specgenAddLinuxNetDevice(specgen *ocigen.Generator, hostIf string, netDev *oci.LinuxNetDevice) {
-	if specgen == nil || netDev == nil {
-		return
-	}
-	ensureLinuxNetDevices(specgen.Config)
-	specgen.Config.Linux.NetDevices[hostIf] = *netDev
-}
-
-// Ensure OCI Spec Linux NetDevices map is not nil.
-func ensureLinuxNetDevices(spec *oci.Spec) {
-	if spec.Linux == nil {
-		spec.Linux = &oci.Linux{}
-	}
-	if spec.Linux.NetDevices == nil {
-		spec.Linux.NetDevices = map[string]oci.LinuxNetDevice{}
-	}
 }
 
 // Validate container edits.
@@ -437,19 +410,11 @@ func (i *IntelRdt) Validate() error {
 	return nil
 }
 
-// Ensure OCI Spec hooks are not nil so we can add hooks.
-func ensureOCIHooks(spec *oci.Spec) {
-	if spec.Hooks == nil {
-		spec.Hooks = &oci.Hooks{}
-	}
-}
-
 // sortMounts sorts the mounts in the given OCI Spec.
-func sortMounts(specgen *ocigen.Generator) {
+func sortMounts(specgen ociedit.SpecEditor) {
 	mounts := specgen.Mounts()
-	specgen.ClearMounts()
 	sort.Stable(orderedMounts(mounts))
-	specgen.Config.Mounts = mounts
+	specgen.SetMounts(mounts)
 }
 
 // orderedMounts defines how to sort an OCI Spec Mount slice.

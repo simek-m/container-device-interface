@@ -23,7 +23,7 @@ import (
 	"strings"
 
 	oci "github.com/opencontainers/runtime-spec/specs-go"
-	gen "github.com/opencontainers/runtime-tools/generate"
+	"tags.cncf.io/container-device-interface/internal/ociedit"
 	"tags.cncf.io/container-device-interface/pkg/cdi"
 	"tags.cncf.io/container-device-interface/pkg/parser"
 )
@@ -227,7 +227,7 @@ func collectCDIDevicesFromOCISpec(spec *oci.Spec) []string {
 	}
 
 	devices := spec.Linux.Devices
-	g := gen.NewFromSpec(spec)
+	g := ociedit.NewSpecEditor(spec)
 	g.ClearLinuxDevices()
 
 	for _, d := range devices {
