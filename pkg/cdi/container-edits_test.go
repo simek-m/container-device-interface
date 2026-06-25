@@ -398,6 +398,47 @@ func TestApplyContainerEdits(t *testing.T) {
 			},
 		},
 		{
+			name: "empty spec, duplicate env vars use last value",
+			spec: &oci.Spec{},
+			edits: &cdi.ContainerEdits{
+				Env: []string{
+					"FOO=old",
+					"FOO=new",
+				},
+			},
+			result: &oci.Spec{
+				Process: &oci.Process{
+					Env: []string{
+						"FOO=new",
+					},
+				},
+			},
+		},
+		{
+			name: "non-empty spec, env var with existing key is replaced",
+			spec: &oci.Spec{
+				Process: &oci.Process{
+					Env: []string{
+						"FOO=old",
+						"BAR=old",
+					},
+				},
+			},
+			edits: &cdi.ContainerEdits{
+				Env: []string{
+					"FOO=new",
+				},
+			},
+			result: &oci.Spec{
+				Process: &oci.Process{
+					Env: []string{
+						"FOO=new",
+						"BAR=old",
+					},
+				},
+			},
+		},
+		{
 			name: "empty spec, device",
 			spec: &oci.Spec{},
 			edits: &cdi.ContainerEdits{
@@ -784,6 +825,26 @@ func TestApplyContainerEdits(t *testing.T) {
 				Process: &oci.Process{
 					User: oci.User{
 						AdditionalGids: []uint32{4, 5, 6},
+					},
+				},
+			},
+		},
+		{
+			name: "existing additional GIDs are not duplicated",
+			spec: &oci.Spec{
+				Process: &oci.Process{
+					User: oci.User{
+						AdditionalGids: []uint32{4},
+					},
+				},
+			},
+			edits: &cdi.ContainerEdits{
+				AdditionalGIDs: []uint32{4, 5},
+			},
+			result: &oci.Spec{
+				Process: &oci.Process{
+					User: oci.User{
+						AdditionalGids: []uint32{4, 5},
 					},
 				},
 			},

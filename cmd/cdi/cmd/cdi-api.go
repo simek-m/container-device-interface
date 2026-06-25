@@ -23,7 +23,7 @@ import (
 	"strings"
 
 	oci "github.com/opencontainers/runtime-spec/specs-go"
-	gen "github.com/opencontainers/runtime-tools/generate"
+	"tags.cncf.io/container-device-interface/internal/ociedit"
 	"tags.cncf.io/container-device-interface/pkg/cdi"
 	"tags.cncf.io/container-device-interface/pkg/parser"
 )
@@ -222,17 +222,20 @@ func collectCDIDevicesFromOCISpec(spec *oci.Spec) []string {
 		cdiDevs []string
 	)
 
-	if spec.Linux == nil || len(spec.Linux.Devices) == 0 {
+	if spec == nil || spec.Linux == nil || len(spec.Linux.Devices) == 0 {
 		return nil
 	}
 
 	devices := spec.Linux.Devices
-	g := gen.NewFromSpec(spec)
-	g.ClearLinuxDevices()
+	editor, err := ociedit.NewSpecEditor(spec)
+	if err != nil {
+		return nil
+	}
+	editor.ClearLinuxDevices()
 
 	for _, d := range devices {
 		if !parser.IsQualifiedName(d.Path) {
-			g.AddDevice(d)
+			editor.AddDevice(d)
 			continue
 		}
 		cdiDevs = append(cdiDevs, d.Path)
