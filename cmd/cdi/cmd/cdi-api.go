@@ -222,12 +222,15 @@ func collectCDIDevicesFromOCISpec(spec *oci.Spec) []string {
 		cdiDevs []string
 	)
 
-	if spec.Linux == nil || len(spec.Linux.Devices) == 0 {
+	if spec == nil || spec.Linux == nil || len(spec.Linux.Devices) == 0 {
 		return nil
 	}
 
 	devices := spec.Linux.Devices
-	editor := ociedit.NewSpecEditor(spec)
+	editor, err := ociedit.NewSpecEditor(spec)
+	if err != nil {
+		return nil
+	}
 	editor.ClearLinuxDevices()
 
 	for _, d := range devices {

@@ -17,6 +17,7 @@
 package ociedit
 
 import (
+	"errors"
 	"slices"
 	"strings"
 
@@ -48,15 +49,19 @@ type SpecEditor interface {
 }
 
 // NewSpecEditor returns CDI's native OCI spec editor.
-func NewSpecEditor(spec *oci.Spec) SpecEditor {
+func NewSpecEditor(spec *oci.Spec) (SpecEditor, error) {
+	if spec == nil {
+		return nil, errors.New("can't edit nil OCI Spec")
+	}
+
 	envCache := map[string]int{}
-	if spec != nil && spec.Process != nil {
+	if spec.Process != nil {
 		envCache = createEnvCacheMap(spec.Process.Env)
 	}
 	return &nativeSpecEditor{
 		spec:   spec,
 		envMap: envCache,
-	}
+	}, nil
 }
 
 type nativeSpecEditor struct {
@@ -73,28 +78,19 @@ func createEnvCacheMap(env []string) map[string]int {
 	return envMap
 }
 
-func (e *nativeSpecEditor) initConfig() {
-	if e.spec == nil {
-		e.spec = &oci.Spec{}
-	}
-}
-
 func (e *nativeSpecEditor) initProcess() {
-	e.initConfig()
 	if e.spec.Process == nil {
 		e.spec.Process = &oci.Process{}
 	}
 }
 
 func (e *nativeSpecEditor) initHooks() {
-	e.initConfig()
 	if e.spec.Hooks == nil {
 		e.spec.Hooks = &oci.Hooks{}
 	}
 }
 
 func (e *nativeSpecEditor) initLinux() {
-	e.initConfig()
 	if e.spec.Linux == nil {
 		e.spec.Linux = &oci.Linux{}
 	}
@@ -118,8 +114,8 @@ func (e *nativeSpecEditor) AddMultipleProcessEnv(envs []string) {
 	e.initProcess()
 
 	for _, val := range envs {
-		split := strings.SplitN(val, "=", 2)
-		e.addEnv(val, split[0])
+		key, _, _ := strings.Cut(val, "=")
+		e.addEnv(val, key)
 	}
 }
 
@@ -180,8 +176,6 @@ func (e *nativeSpecEditor) SetLinuxNetDevice(hostIf string, netDev *oci.LinuxNet
 }
 
 func (e *nativeSpecEditor) RemoveMount(dest string) {
-	e.initConfig()
-
 	for i, mount := range e.spec.Mounts {
 		if mount.Destination == dest {
 			e.spec.Mounts = append(e.spec.Mounts[:i], e.spec.Mounts[i+1:]...)
@@ -191,17 +185,14 @@ func (e *nativeSpecEditor) RemoveMount(dest string) {
 }
 
 func (e *nativeSpecEditor) AddMount(mnt oci.Mount) {
-	e.initConfig()
 	e.spec.Mounts = append(e.spec.Mounts, mnt)
 }
 
 func (e *nativeSpecEditor) Mounts() []oci.Mount {
-	e.initConfig()
 	return e.spec.Mounts
 }
 
 func (e *nativeSpecEditor) SetMounts(mounts []oci.Mount) {
-	e.initConfig()
 	e.spec.Mounts = mounts
 }
 

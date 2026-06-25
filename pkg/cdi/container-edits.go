@@ -80,7 +80,10 @@ func (e *ContainerEdits) Apply(spec *oci.Spec) error {
 		return nil
 	}
 
-	editor := ociedit.NewSpecEditor(spec)
+	editor, err := ociedit.NewSpecEditor(spec)
+	if err != nil {
+		return fmt.Errorf("error creating spec editor: %w", err)
+	}
 	if len(e.Env) > 0 {
 		editor.AddMultipleProcessEnv(e.Env)
 	}
